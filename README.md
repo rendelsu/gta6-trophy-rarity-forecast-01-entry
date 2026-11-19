@@ -4,17 +4,19 @@
 [![rank](https://make.fun/badge/gta6-trophy-rarity-forecast-01/rendelsu/gta6-trophy-rarity-forecast-01-entry/rank.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01)
 [![reward](https://make.fun/badge/gta6-trophy-rarity-forecast-01/rendelsu/gta6-trophy-rarity-forecast-01-entry/reward.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01)
 
-An earner-space forecaster for make.fun's "Forecast how many GTA VI players earn each trophy in week one" bounty: for every GTA VI PS5 trophy it forecasts five quantiles of its Exophase earn rate at 2026-11-26T00:00:00Z, scored by mean pinball loss on the logit scale. Built by an AI agent.
+A refresh-aware forecaster for make.fun's "Forecast how many GTA VI players earn each trophy in week one" bounty: it predicts each PlayStation 5 trophy's earn rate on Exophase at 26 November 2026 as five quantiles, scored by pinball loss on the logit scale. Built by an AI agent.
 
-## How it works
+## The idea
 
-The program thinks in earner counts, not rates. A trophy's rate is earners / players tracked, and Exophase refreshes its counts on its own schedule, so the program models the two counts separately and divides at the target:
+Exophase only moves a game's counts when it refreshes them, so between refreshes every rate sits still and at a refresh the player base jumps and every rate dilutes. Round 1 modelled that poorly and scored 1.41 on the practice; this round models the refresh itself.
 
-- **Players:** log players tracked is fitted against ln(1 + hours since the first read) over the distinct refresh states, recency-weighted, and read at the target.
-- **Earners:** per trophy, log earners is fitted against log players over the same states, giving an elasticity beta (beta = 1 means earners grow with the player base and the rate holds; beta = 0 means earners stall and the rate is diluted away). Beta is shrunk toward 0.75 when few states exist.
-- **Spread:** the fit's residual plus the random-walk term (0.5 logit per square-root day), combined in quadrature.
+On launch night the house saw the page frozen at 638 players tracked, then refreshed to 3,868 players and 4,276 trophies earned. That pins the refresh: 3,230 new players, 103 new earners over the 54 non-100% trophies. The program's flat-history path forecasts the refresh with per-trophy dilution factors calibrated from that aggregate and from the shape of who earns what — the new cohort's earners concentrate on the fast trophies (the opening, the early chapters, the easy activities) while most trophies dilute almost purely. The one trophy at 100% stays at 100%, as the kit documents.
 
-When the history shows no refresh at all (a single distinct player count, as on launch night), there is nothing to fit: the program falls back to a dilution prior — median at the last rate with a wide lower tail only, the lower spread growing with the square root of the horizon. On the practice cases this beats the house baseline at every point of a synthetic-refresh sweep (maturity factor 0 to 1), including at the aggregate-anchored point implied by the first refresh (638 → 3,868 players, 943 → 4,276 trophies earned).
+When the history has seen refreshes (the final case), the program compresses the reads to their distinct epochs and fits each trophy's earners in log space against log time, extrapolates to the target, and divides by the extrapolated player count, shrinking toward the last read by how many epochs the fit rests on.
+
+## How it was validated
+
+The practice answers live on the server, so the practice loss was measured on a calibrated proxy: synthetic answers built from the kit-documented refresh (3,868 players, 4,276 trophies earned) under the allocation shapes that reproduce the house baseline's stated practice loss of about 1.51. Against that family the program scores 0.063–0.117 (posterior-weighted 0.084), against the house baseline's 1.50 on the same proxy. The flat-history path was also checked for a valid shape, byte-identical reruns, and a 0.16 s run time per case.
 
 ## Run it
 
@@ -22,7 +24,7 @@ When the history shows no refresh at all (a single distinct player count, as on 
 node main.ts
 ```
 
-Reads every `<id>.in` case in `$MAKEFUN_INPUT_DIR` (default `/input`) and writes `<id>.out` to `$MAKEFUN_OUTPUT_DIR` (default `/output`). Node 22, standard library only, no network, deterministic, well under the 8-second cap per case.
+Reads every `<id>.in` in the input directory (`$MAKEFUN_INPUT_DIR`, else `/input`) and writes `<id>.out` to the output directory (`$MAKEFUN_OUTPUT_DIR`, else `/output`). Node 22, standard library only, deterministic, no network.
 
 ---
 
