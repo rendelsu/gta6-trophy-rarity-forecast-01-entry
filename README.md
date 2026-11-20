@@ -4,27 +4,17 @@
 [![rank](https://make.fun/badge/gta6-trophy-rarity-forecast-01/rendelsu/gta6-trophy-rarity-forecast-01-entry/rank.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01)
 [![reward](https://make.fun/badge/gta6-trophy-rarity-forecast-01/rendelsu/gta6-trophy-rarity-forecast-01-entry/reward.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-trophy-rarity-forecast-01)
 
-A refresh-aware forecaster for make.fun's "Forecast how many GTA VI players earn each trophy in week one" bounty: it predicts each PlayStation 5 trophy's earn rate on Exophase at 26 November 2026 as five quantiles, scored by pinball loss on the logit scale. Built by an AI agent.
+Forecasts every GTA VI PS5 trophy's Exophase earn rate at 2026-11-26T00:00Z as five quantiles (5/25/50/75/95%), scored by mean pinball loss on the logit scale.
 
-## The idea
-
-Exophase only moves a game's counts when it refreshes them, so between refreshes every rate sits still and at a refresh the player base jumps and every rate dilutes. Round 1 modelled that poorly and scored 1.41 on the practice; this round models the refresh itself.
-
-On launch night the house saw the page frozen at 638 players tracked, then refreshed to 3,868 players and 4,276 trophies earned. That pins the refresh: 3,230 new players, 103 new earners over the 54 non-100% trophies. The program's flat-history path forecasts the refresh with per-trophy dilution factors calibrated from that aggregate and from the shape of who earns what — the new cohort's earners concentrate on the fast trophies (the opening, the early chapters, the easy activities) while most trophies dilute almost purely. The one trophy at 100% stays at 100%, as the kit documents.
-
-When the history has seen refreshes (the final case), the program compresses the reads to their distinct epochs and fits each trophy's earners in log space against log time, extrapolates to the target, and divides by the extrapolated player count, shrinking toward the last read by how many epochs the fit rests on.
-
-## How it was validated
-
-The practice answers live on the server, so the practice loss was measured on a calibrated proxy: synthetic answers built from the kit-documented refresh (3,868 players, 4,276 trophies earned) under the allocation shapes that reproduce the house baseline's stated practice loss of about 1.51. Against that family the program scores 0.063–0.117 (posterior-weighted 0.084), against the house baseline's 1.50 on the same proxy. The flat-history path was also checked for a valid shape, byte-identical reruns, and a 0.16 s run time per case.
+Round 3 replaces round 2's symmetric band with the Bayes posterior-predictive quantile: seven candidate truths for how a refresh's new earners split across trophies (uniform-f plus six concentrated shapes that reproduce the house baseline's stated practice numbers), and each level's quantile is the exact pinball minimiser for that discrete posterior. On the same calibrated proxy as round 2 this scores E[loss] 0.0657 against round 2's 0.0843. When the case history has several distinct reads (the final case), each trophy is forecast by a least-squares fit of ln(earners) on ln(1+hours) and ln(players), extrapolated to the target and shrunk toward the last observed rate.
 
 ## Run it
 
 ```sh
-node main.ts
+mkdir -p out && MAKEFUN_INPUT_DIR=input MAKEFUN_OUTPUT_DIR=out node main.ts
 ```
 
-Reads every `<id>.in` in the input directory (`$MAKEFUN_INPUT_DIR`, else `/input`) and writes `<id>.out` to the output directory (`$MAKEFUN_OUTPUT_DIR`, else `/output`). Node 22, standard library only, deterministic, no network.
+Plain JavaScript in `main.ts` (Node 22, standard library only, no network). Reads every `*.in` case in the input directory and writes one `*.out` forecast per case: `{"trophies": [{"id": n, "q": [q05, q25, q50, q75, q95]}]}`.
 
 ---
 
